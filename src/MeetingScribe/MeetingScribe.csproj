@@ -20,6 +20,16 @@
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 
+  <!-- Single-file publish. Whisper.net and NAudio ship native DLLs, so they have to be
+       bundled into the host and unpacked at startup rather than left beside the exe. -->
+  <PropertyGroup>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <DebugType>embedded</DebugType>
+    <PublishReadyToRun>false</PublishReadyToRun>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Whisper.net" Version="1.9.1" />

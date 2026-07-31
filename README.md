@@ -19,11 +19,14 @@ diarization model, and it is far more accurate than trying to split a single mix
 
 ## Requirements
 
-- Windows 10/11
-- [.NET 10 SDK](https://dotnet.microsoft.com/download) to build (the published app needs only the runtime)
+- Windows 10/11 (x64)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) to build. The published exe is
+  self-contained, so target machines need nothing installed.
 - ~500 MB of disk for the Whisper model, downloaded automatically on first use
 
 ## Build and run
+
+For development:
 
 ```powershell
 git clone <this repo>
@@ -32,14 +35,31 @@ dotnet build
 dotnet run --project src\MeetingScribe
 ```
 
-To produce a standalone executable you can drop anywhere:
+To produce the shippable executable:
 
 ```powershell
-dotnet publish src\MeetingScribe -c Release -r win-x64 --self-contained `
-  -p:PublishSingleFile=true -o publish
+.\build.ps1
 ```
 
-Then use **Start with Windows** in the tray menu so it launches at sign-in.
+This writes a single self-contained `publish\MeetingScribe.exe` (~84 MB) and smoke-tests it
+by running it from a temporary directory. Copy that one file anywhere on any Windows x64
+machine and double-click it — no .NET install, no DLLs beside it. The .NET runtime, NAudio
+and both Whisper.net native runtimes (CPU and Vulkan) are all bundled inside and unpacked
+to a cache under `%TEMP%` on first launch.
+
+Useful switches:
+
+```powershell
+.\build.ps1 -OutputPath D:\tools   # build straight into another folder
+.\build.ps1 -Configuration Debug   # debug symbols, no optimisation
+.\build.ps1 -SkipTest              # skip the post-build smoke test
+```
+
+The build is deliberately always self-contained. A framework-dependent single-file build
+comes out *larger* (~122 MB), because single-file compression only applies to
+self-contained publishes.
+
+Once it is running, use **Start with Windows** in the tray menu so it launches at sign-in.
 
 ## First run
 
@@ -163,6 +183,12 @@ tags:
 ## Diagnostics
 
 ```powershell
+# Version, .NET runtime and architecture — the quickest "does this exe work here?" check
+MeetingScribe.exe --version
+
+# Full command list
+MeetingScribe.exe --help
+
 # Devices, detection probes, a short two-track test recording, and conversion stats
 MeetingScribe.exe --selftest 10
 
@@ -170,8 +196,8 @@ MeetingScribe.exe --selftest 10
 MeetingScribe.exe --transcribe "C:\path\to\audio.wav"
 ```
 
-Both write a report to `%TEMP%\meetingscribe-selftest.txt`. Runtime logs live in
-`%APPDATA%\MeetingScribe\logs\`.
+`--selftest` and `--transcribe` write a report to `%TEMP%\meetingscribe-selftest.txt`.
+Runtime logs live in `%APPDATA%\MeetingScribe\logs\`.
 
 ## Troubleshooting
 

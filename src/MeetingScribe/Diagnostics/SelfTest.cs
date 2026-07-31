@@ -27,6 +27,18 @@ internal static class SelfTest
 
         try
         {
+            if (args[0].Equals("--version", StringComparison.OrdinalIgnoreCase))
+            {
+                WriteVersion();
+                return 0;
+            }
+
+            if (args[0] is "--help" or "--?")
+            {
+                WriteUsage();
+                return 0;
+            }
+
             var config = ConfigStore.Load();
 
             if (args[0].Equals("--transcribe", StringComparison.OrdinalIgnoreCase))
@@ -239,6 +251,32 @@ internal static class SelfTest
     {
         Write("");
         Write($"=== {title} ===");
+    }
+
+    /// <summary>
+    /// Prints build identity without touching audio devices or config, so it doubles as a
+    /// cheap "does this executable actually run here?" check for the build script.
+    /// </summary>
+    private static void WriteVersion()
+    {
+        var assembly = typeof(SelfTest).Assembly;
+        var version = assembly.GetName().Version?.ToString() ?? "unknown";
+        var runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+        var arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture;
+
+        Console.WriteLine($"MeetingScribe {version} ({runtime}, {arch})");
+    }
+
+    private static void WriteUsage()
+    {
+        Console.WriteLine("MeetingScribe — records Teams calls and files transcripts in Obsidian.");
+        Console.WriteLine();
+        Console.WriteLine("  MeetingScribe.exe                    Start in the system tray (normal use).");
+        Console.WriteLine("  MeetingScribe.exe --version          Print version and exit.");
+        Console.WriteLine("  MeetingScribe.exe --selftest [secs]  Record, transcribe and write a sample note.");
+        Console.WriteLine("  MeetingScribe.exe --transcribe <f>   Transcribe an existing audio file.");
+        Console.WriteLine();
+        Console.WriteLine(@"Config and logs live in %APPDATA%\MeetingScribe.");
     }
 
     private static void Write(string line)
