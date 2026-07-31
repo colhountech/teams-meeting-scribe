@@ -21,6 +21,10 @@
 .PARAMETER OutputPath
     Where to write the exe. Defaults to .\publish.
 
+.PARAMETER Version
+    Version to stamp into the assembly, e.g. 1.2.0. Defaults to the value in the csproj.
+    CI passes the release tag here so MeetingScribe.exe --version matches the release.
+
 .PARAMETER SkipTest
     Skip the post-build smoke test that runs the exe from a temporary directory.
 
@@ -37,6 +41,8 @@ param(
     [ValidateSet('Release', 'Debug')]
     [string]$Configuration = 'Release',
     [string]$OutputPath,
+    [ValidatePattern('^\d+\.\d+\.\d+(\.\d+)?$')]
+    [string]$Version,
     [switch]$SkipTest
 )
 
@@ -56,6 +62,7 @@ Write-Host ''
 Write-Host 'Building MeetingScribe' -ForegroundColor Cyan
 Write-Host "  configuration : $Configuration"
 Write-Host "  runtime       : win-x64 (self-contained, single file)"
+if ($Version) { Write-Host "  version       : $Version" }
 Write-Host "  output        : $OutputPath"
 Write-Host ''
 
@@ -65,14 +72,30 @@ if (Test-Path $OutputPath) {
     Remove-Item -Recurse -Force $OutputPath
 }
 
-& dotnet publish $project `
-    -c $Configuration `
-    -r win-x64 `
-    -o $OutputPath `
-    --nologo `
-    -p:SelfContained=true `
-    -p:PublishSingleFile=true `
-    -p:EnableCompressionInSingleFile=true
+# Incremental builds happily reuse an assembly stamped with a previous -Version, which
+# would silently ship a mislabelled binary. Dropping the compiled output forces a real
+# recompile. obj\project.assets.json is left alone so restore is not repeated.
+foreach ($dir in @("bin\$Configuration", "obj\$Configuration")) {
+    $stale = Join-Path (Split-Path $project) $dir
+    if (Test-Path $stale) { Remove-Item -Recurse -Force $stale }
+}
+
+$publishArgs = @(
+    'publish', $project,
+    '-c', $Configuration,
+    '-r', 'win-x64',
+    '-o', $OutputPath,
+    '--nologo',
+    '-p:SelfContained=true',
+    '-p:PublishSingleFile=true',
+    '-p:EnableCompressionInSingleFile=true'
+)
+
+if ($Version) {
+    $publishArgs += "-p:Version=$Version"
+}
+
+& dotnet @publishArgs
 
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE"

@@ -9,6 +9,9 @@ an Obsidian vault. Everything runs offline and free — no cloud services, no AP
 ```
 build.ps1                   Single-file publish + smoke test (the build entry point that matters)
 MeetingScribe.slnx
+.github/
+  workflows/release.yml     Tag v* -> build on a Windows runner -> GitHub Release
+  release-notes-template.md Release body, with {{VERSION}}/{{SIZE}}/{{SHA}} placeholders
 src/MeetingScribe/
   Program.cs                Entry point: single-instance mutex, exception hooks, CLI dispatch
   TrayApplicationContext.cs NotifyIcon, menu, wiring
@@ -95,6 +98,36 @@ Don't name a lambda parameter `_` if the body also does `_ = SomeOutParamCall(..
 **Single-file publish needs `IncludeNativeLibrariesForSelfExtract`.** NAudio and Whisper.net
 ship native DLLs; without it they land beside the exe instead of in the bundle. `build.ps1`
 warns if any file is emitted next to the exe — treat that warning as a failure.
+
+**PowerShell here-strings cannot be indented**, so they cannot live inside a YAML `run: |`
+block — the terminator at column 0 breaks the block scalar. That is why the release notes
+body is a separate template file. Validate workflow edits before pushing:
+
+```powershell
+Import-Module powershell-yaml
+$d = Get-Content .github\workflows\release.yml -Raw | ConvertFrom-Yaml
+$d.jobs.release.steps | Where-Object run | ForEach-Object {
+  $e = $null
+  [System.Management.Automation.Language.Parser]::ParseInput($_.run, [ref]$null, [ref]$e) | Out-Null
+  "{0}: {1}" -f $_.name, $(if ($e.Count) { $e[0].Message } else { 'OK' })
+}
+```
+
+**A stale `MeetingScribe.exe` can lock the publish folder** and make `build.ps1` fail with
+"Access to the path ... is denied". Check for a running instance before building.
+
+**`build.ps1` deletes `bin\<Config>` and `obj\<Config>` before publishing.** This is not
+belt-and-braces: without it MSBuild reuses an assembly stamped with a previous `-Version`
+and silently ships a mislabelled binary. Note `dotnet publish` does *not* accept
+`--no-incremental` — that is a `dotnet build` switch only.
+
+## Releasing
+
+Push a `v*` tag. `.github/workflows/release.yml` stamps the version via
+`build.ps1 -Version`, re-verifies the artifact is a single correctly-versioned file, and
+publishes it with a SHA-256. Use `workflow_dispatch` for a draft test release. Version
+strings must be `MAJOR.MINOR.PATCH[.BUILD]` — prerelease suffixes are rejected because
+`-p:Version` feeds a Win32 file version.
 
 ## Known constraints
 

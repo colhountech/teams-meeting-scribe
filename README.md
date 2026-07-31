@@ -61,6 +61,24 @@ self-contained publishes.
 
 Once it is running, use **Start with Windows** in the tray menu so it launches at sign-in.
 
+## Releases
+
+Tagging a version builds the executable on a Windows runner and publishes it as a GitHub
+Release:
+
+```powershell
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+The workflow (`.github/workflows/release.yml`) stamps the tag version into the assembly,
+verifies the published output really is a single correctly-versioned file, and attaches it
+with its SHA-256 in the release notes. You can also run it manually from the **Actions** tab
+to produce a draft release for testing.
+
+The binary is not code-signed, so Windows SmartScreen will warn about an unknown publisher
+on first run.
+
 ## First run
 
 1. The app creates `%APPDATA%\MeetingScribe\config.json` and tries to find your Obsidian vault.
