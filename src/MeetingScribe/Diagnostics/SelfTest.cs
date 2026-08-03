@@ -93,7 +93,7 @@ internal static class SelfTest
         Write($"Pattern              : {config.Detection.ProcessNamePattern}");
         Write($"Audio-session probe  : {audioProbe.IsCallActive()}");
         Write($"Mic-consent probe    : {registryProbe.IsCallActive()}");
-        Write($"Resolved title       : {MeetingTitleResolver.Resolve(config.Detection.ProcessNamePattern)}");
+        Write($"Resolved title       : {MeetingTitleResolver.Resolve(config.Detection.ProcessNamePattern, config.Detection.IgnoredWindowTitlePattern)}");
 
         Section($"Recording {seconds}s");
         var recordingConfig = new RecordingConfig

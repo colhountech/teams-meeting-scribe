@@ -55,7 +55,9 @@ internal sealed class MeetingPipeline : IDisposable
     {
         if (_recorder.IsRecording) return;
 
-        var resolved = title ?? MeetingTitleResolver.Resolve(_config.Detection.ProcessNamePattern);
+        var resolved = title ?? MeetingTitleResolver.Resolve(
+            _config.Detection.ProcessNamePattern,
+            _config.Detection.IgnoredWindowTitlePattern);
         CurrentTitle = resolved;
 
         try
@@ -203,7 +205,8 @@ internal sealed class MeetingPipeline : IDisposable
 
         DeleteFiles(tempFiles);
 
-        var path = _noteWriter.Write(recording, segments);
+        var transcript = EchoFilter.Apply(segments, _config.Transcription);
+        var path = _noteWriter.Write(recording, transcript);
 
         if (!_config.Recording.KeepAudioFiles && !recording.IsManualImport) DeleteFiles(recording.AudioFiles);
 

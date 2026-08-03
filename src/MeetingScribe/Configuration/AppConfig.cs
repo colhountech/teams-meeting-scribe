@@ -47,6 +47,13 @@ public sealed class DetectionConfig
 
     /// <summary>Detect via the Windows microphone privacy "in use" registry markers.</summary>
     public bool UseMicrophoneConsentRegistry { get; set; } = true;
+
+    /// <summary>
+    /// Regex matched against each pipe-separated segment of a Teams window caption. Matching
+    /// segments are boilerplate (shell tabs, the "Meeting join" stage prefix) rather than the
+    /// meeting title. Empty = use the built-in list.
+    /// </summary>
+    public string IgnoredWindowTitlePattern { get; set; } = "";
 }
 
 public sealed class RecordingConfig
@@ -97,6 +104,19 @@ public sealed class TranscriptionConfig
 
     /// <summary>Segments whose average token probability is below this are dropped.</summary>
     public double MinimumProbability { get; set; } = 0.25;
+
+    /// <summary>
+    /// Drop microphone lines that merely repeat what the participants track already said at the
+    /// same moment. This is what happens when the meeting is played through speakers instead of
+    /// a headset: the microphone re-records everyone else and they get transcribed twice.
+    /// </summary>
+    public bool SuppressMicrophoneEcho { get; set; } = true;
+
+    /// <summary>How far apart the two tracks' segment boundaries may be and still be compared.</summary>
+    public double EchoToleranceSeconds { get; set; } = 2.5;
+
+    /// <summary>Fraction of a microphone line's words that must also appear in the overlapping participants audio.</summary>
+    public double EchoSimilarityThreshold { get; set; } = 0.6;
 }
 
 public sealed class NotesConfig

@@ -9,17 +9,15 @@ namespace MeetingScribe.Detection;
 /// <summary>Best-effort meeting title, read from Teams' visible top-level window captions.</summary>
 internal static partial class MeetingTitleResolver
 {
-    private static readonly string[] ShellTabs =
-    [
-        "Chat", "Calendar", "Teams", "Activity", "Calls", "Files", "Apps",
-        "Microsoft Teams", "Notifications", "Search",
-    ];
-
-    public static string Resolve(string processNamePattern, string fallback = "Teams Meeting")
+    public static string Resolve(
+        string processNamePattern,
+        string? ignoredTitlePattern = null,
+        string fallback = "Teams Meeting")
     {
         try
         {
             var pattern = new Regex(processNamePattern, RegexOptions.IgnoreCase);
+            var ignored = BuildIgnoredPattern(ignoredTitlePattern);
             var pids = CollectProcessIds(pattern);
 
             if (pids.Count == 0) return fallback;
@@ -27,7 +25,7 @@ internal static partial class MeetingTitleResolver
             var candidates = EnumerateWindowTitles(pids);
             foreach (var title in candidates)
             {
-                var cleaned = Clean(title);
+                var cleaned = Clean(title, ignored);
                 if (cleaned is not null) return cleaned;
             }
         }
@@ -61,20 +59,48 @@ internal static partial class MeetingTitleResolver
         return pids;
     }
 
-    private static string? Clean(string title)
+    private static Regex BuildIgnoredPattern(string? pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) return DefaultIgnoredSegment();
+
+        try
+        {
+            return new Regex(pattern, RegexOptions.IgnoreCase);
+        }
+        catch (ArgumentException ex)
+        {
+            Log.Warn($"Invalid Detection.IgnoredWindowTitlePattern ('{pattern}'): {ex.Message}");
+            return DefaultIgnoredSegment();
+        }
+    }
+
+    /// <summary>
+    /// Teams captions are pipe-delimited and most-specific first: "Weekly sync | Microsoft Teams".
+    /// While a call is being joined the caption gains a stage prefix — "Meeting join | Weekly sync |
+    /// Microsoft Teams" — so the real title is whichever segment is not boilerplate, not segment zero.
+    /// </summary>
+    private static string? Clean(string title, Regex ignored)
     {
         if (string.IsNullOrWhiteSpace(title)) return null;
 
-        // Teams captions look like "Weekly sync | Microsoft Teams".
-        var name = title.Split('|')[0].Trim();
-        if (name.Length == 0) return null;
-        if (ShellTabs.Contains(name, StringComparer.OrdinalIgnoreCase)) return null;
-        if (name.Equals("Microsoft Teams", StringComparison.OrdinalIgnoreCase)) return null;
+        foreach (var part in title.Split('|'))
+        {
+            // Strip Teams' unread-count and notification prefixes, e.g. "(3) Weekly sync".
+            var name = UnreadPrefix().Replace(part.Trim(), "").Trim();
 
-        // Strip Teams' unread-count and notification prefixes, e.g. "(3) Weekly sync".
-        name = UnreadPrefix().Replace(name, "").Trim();
-        return name.Length == 0 ? null : name;
+            if (name.Length == 0) continue;
+            if (ignored.IsMatch(name)) continue;
+
+            return name;
+        }
+
+        return null;
     }
+
+    [GeneratedRegex(
+        @"^(?:Meeting join|Meeting|Meeting now|Join meeting|Pre-join|Calling|Microsoft Teams|Teams|Teams classic|Chat|Calendar|Activity|Calls|Files|Apps|Home|Communities|Notifications|Search|More)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DefaultIgnoredSegment();
 
     private static List<string> EnumerateWindowTitles(HashSet<int> processIds)
     {

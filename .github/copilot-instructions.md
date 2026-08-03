@@ -77,6 +77,16 @@ filters guard against this: an RMS loudness envelope computed during conversion
 (`SilenceRmsThreshold`), `MinimumProbability`, and a literal/regex hallucination list. Keep
 all three.
 
+**Speaker bleed duplicates every line.** With speakers instead of a headset the mic re-records
+the meeting, so both tracks transcribe the same sentence. `Transcription/EchoFilter` drops the
+mic copy by word-overlap against time-overlapping participants segments. Signal-domain AEC was
+rejected: the two WASAPI endpoints have independent clocks, so the echo delay drifts over a
+long meeting and a fixed-delay canceller falls apart.
+
+**Window captions are pipe-delimited, and the title is not always segment zero.** While a call
+is being joined Teams uses "Meeting join | Real title | Microsoft Teams". `MeetingTitleResolver`
+takes the first segment that isn't boilerplate, not the first segment.
+
 **Detection must not depend on the Teams UI.** Both probes are deliberately UI-independent so
 Teams updates cannot break them:
 

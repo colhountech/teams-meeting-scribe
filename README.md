@@ -17,6 +17,10 @@ The microphone track is you; the system-output track is everyone else. Transcrib
 separately gives you speaker attribution (`Me:` / `Participants:`) without running a
 diarization model, and it is far more accurate than trying to split a single mixed track.
 
+If you listen on speakers rather than a headset, your microphone also picks up everyone else,
+so the same sentence lands on both tracks. MeetingScribe compares the two transcripts and drops
+the microphone copy, keeping the clean loopback one — see `Transcription.SuppressMicrophoneEcho`.
+
 ## Requirements
 
 - Windows 10/11 (x64)
@@ -137,6 +141,7 @@ Zoom, and anything else you add to `Detection.ProcessNamePattern`.
 | `Detection.StopAfterConsecutiveMisses` | `6` | ~12 s of silence before stopping |
 | `Detection.UseAudioSessions` | `true` | |
 | `Detection.UseMicrophoneConsentRegistry` | `true` | |
+| `Detection.IgnoredWindowTitlePattern` | *(empty)* | Regex over each pipe-separated part of the Teams window caption; matches are boilerplate, not the meeting title. Empty = built-in list |
 
 ### Recording
 
@@ -160,6 +165,9 @@ Zoom, and anything else you add to `Detection.ProcessNamePattern`.
 | `Transcription.MergeGapSeconds` | `4` | Joins consecutive lines from one speaker |
 | `Transcription.SilenceRmsThreshold` | `0.004` | Drops Whisper's silence hallucinations |
 | `Transcription.MinimumProbability` | `0.25` | Drops low-confidence segments |
+| `Transcription.SuppressMicrophoneEcho` | `true` | Drops mic lines that repeat the participants track (speaker bleed) |
+| `Transcription.EchoToleranceSeconds` | `2.5` | How far the two tracks' segment boundaries may differ |
+| `Transcription.EchoSimilarityThreshold` | `0.6` | Fraction of words that must match to count as echo |
 
 Model trade-off, roughly, on a modern laptop CPU:
 
@@ -231,6 +239,13 @@ lists them.
 Raise `Transcription.SilenceRmsThreshold` (try `0.01`).
 
 **Transcription is slow.** Drop to `BaseEn`, or raise `Transcription.Threads`.
+
+**Everything is said twice, once by "Participants" and once by "Me".** You are listening on
+speakers, so your microphone re-records the meeting. Echo suppression removes these duplicates
+automatically by comparing the two tracks; if some slip through, lower
+`Transcription.EchoSimilarityThreshold` (try `0.45`) or raise `Transcription.EchoToleranceSeconds`.
+If it is over-eager and eats things you actually said, raise the threshold instead. A headset
+avoids the problem entirely and always gives the cleanest speaker attribution.
 
 ## A note on consent
 
