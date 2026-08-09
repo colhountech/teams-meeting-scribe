@@ -1,8 +1,10 @@
 # MeetingScribe
 
-A Windows system-tray app that notices when you're on a Microsoft Teams call, records it,
+A tiny Windows system-tray app that notices when you're on a Microsoft Teams call, records it,
 transcribes it **locally** with Whisper, and files the transcript as a markdown note in your
 Obsidian vault.
+
+![A screenshot of MeetingScribe](docs/screenshot1.png)
 
 Everything runs offline. No cloud service, no account, no API key, no per-minute limits.
 
