@@ -263,7 +263,7 @@ internal sealed class MeetingPipeline : IDisposable
         }
     }
 
-    private void ReportIdle() => Report(AppState.Idle, "Watching for Teams calls");
+    private void ReportIdle() => Report(AppState.Idle, "Watching for meetings");
 
     private void Report(AppState state, string status) => Post(() => StateChanged?.Invoke(state, status));
 

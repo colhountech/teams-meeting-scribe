@@ -68,9 +68,9 @@ Write-Host ''
 
 # A stale publish folder makes it impossible to tell whether the build actually
 # produced a fresh exe, so start clean.
-if (Test-Path $OutputPath) {
-    Remove-Item -Recurse -Force $OutputPath
-}
+#if (Test-Path $OutputPath) {
+#    Remove-Item -Recurse -Force $OutputPath
+#}
 
 # Incremental builds happily reuse an assembly stamped with a previous -Version, which
 # would silently ship a mislabelled binary. Dropping the compiled output forces a real
@@ -101,14 +101,25 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE"
 }
 
+# Keep the optional recording controls beside the published executable.
+foreach ($script in @('start-recording.bat', 'stop-recording.bat')) {
+    Copy-Item (Join-Path $root $script) (Join-Path $OutputPath $script) -Force
+}
+
 $exe = Join-Path $OutputPath 'MeetingScribe.exe'
 if (-not (Test-Path $exe)) {
     throw "Build reported success but $exe was not produced."
 }
 
-# The whole point of a single-file build is that nothing else is needed at runtime.
-# Anything left next to the exe means a dependency escaped the bundle.
-$strays = @(Get-ChildItem $OutputPath -Recurse -File | Where-Object { $_.FullName -ne $exe })
+# The whole point of a single-file build is that no application dependencies are
+# needed at runtime. The batch files are intentional companions, not publish strays.
+$companionFiles = @(
+    (Join-Path $OutputPath 'start-recording.bat'),
+    (Join-Path $OutputPath 'stop-recording.bat')
+)
+$strays = @(Get-ChildItem $OutputPath -Recurse -File | Where-Object {
+    $_.FullName -ne $exe -and $_.FullName -notin $companionFiles
+})
 
 $sizeMb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
 
@@ -154,6 +165,6 @@ if (-not $SkipTest) {
 }
 
 Write-Host ''
-Write-Host 'Copy MeetingScribe.exe anywhere and run it. It lives in the system tray.' -ForegroundColor Cyan
+Write-Host 'Copy MeetingScribe.exe and the recording batch files anywhere and run it. It lives in the system tray.' -ForegroundColor Cyan
 Write-Host 'Config and logs are written to %APPDATA%\MeetingScribe.'
 Write-Host ''

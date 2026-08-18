@@ -485,3 +485,5 @@ $RECYCLE.BIN/
 publish/
 *.wav
 *.bin
+
+src/MeetingScribe/.vscode/

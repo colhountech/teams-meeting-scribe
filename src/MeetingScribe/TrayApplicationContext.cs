@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using MeetingScribe.Configuration;
 using MeetingScribe.Detection;
 using MeetingScribe.Infrastructure;
@@ -23,6 +26,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private AppState _state = AppState.Idle;
     private string? _lastNotePath;
+    private WebApplication? _localApi;
+    private Task? _localApiTask;
 
     public TrayApplicationContext()
     {
@@ -63,7 +68,64 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _monitor.CallEnded += () => _pipeline.StopRecording();
         _monitor.Start();
 
-        SetState(AppState.Idle, ValidateConfiguration() ?? "Watching for Teams calls");
+        StartLocalControlApi();
+        SetState(AppState.Idle, ValidateConfiguration() ?? "Watching for meetings");
+    }
+
+    private void StartLocalControlApi()
+    {
+        if (!_config.LocalControl.Enabled)
+        {
+            Log.Info("Local control API is disabled in the config.");
+            return;
+        }
+
+        try
+        {
+            var port = Math.Clamp(_config.LocalControl.Port, 1024, 65535);
+            var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
+            var app = builder.Build();
+
+            app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+            app.MapPost("/api/recording/start", () =>
+            {
+                RequestRecordingStart();
+                return Results.Ok(new { status = "started" });
+            });
+            app.MapPost("/api/recording/stop", () =>
+            {
+                RequestRecordingStop();
+                return Results.Ok(new { status = "stopped" });
+            });
+            app.MapPost("/api/recording/toggle", () =>
+            {
+                ToggleRecording();
+                return Results.Ok(new { status = _pipeline.IsRecording ? "recording" : "stopped" });
+            });
+
+            _localApi = app;
+            _localApiTask = app.RunAsync();
+            Log.Info($"Local control API listening on http://127.0.0.1:{port}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Could not start local control API on port {_config.LocalControl.Port}", ex);
+        }
+    }
+
+    public void RequestRecordingStart()
+    {
+        if (_pipeline.IsRecording) return;
+        _monitor.OverrideState(true);
+        _pipeline.StartRecording();
+    }
+
+    public void RequestRecordingStop()
+    {
+        if (!_pipeline.IsRecording) return;
+        _monitor.OverrideState(false);
+        _pipeline.StopRecording();
     }
 
     private ContextMenuStrip BuildMenu()
@@ -130,7 +192,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         else
         {
             _monitor.OverrideState(_pipeline.IsRecording);
-            SetState(_pipeline.IsRecording ? AppState.Recording : AppState.Idle, "Watching for Teams calls");
+            SetState(_pipeline.IsRecording ? AppState.Recording : AppState.Idle, "Watching for meetings");
         }
     }
 
@@ -240,6 +302,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (disposing)
         {
             Log.Info($"MeetingScribe shutting down (state: {_state}).");
+            StopLocalControlApi();
             _notifyIcon.Visible = false;
 
             _monitor.Dispose();
@@ -249,5 +312,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
 
         base.Dispose(disposing);
+    }
+
+    private void StopLocalControlApi()
+    {
+        if (_localApi is null) return;
+
+        try
+        {
+            _localApi.StopAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Local control API shutdown raised an exception", ex);
+        }
+
+        _localApi = null;
     }
 }

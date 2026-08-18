@@ -20,6 +20,10 @@
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <!-- Single-file publish. Whisper.net and NAudio ship native DLLs, so they have to be
        bundled into the host and unpacked at startup rather than left beside the exe. -->
   <PropertyGroup>

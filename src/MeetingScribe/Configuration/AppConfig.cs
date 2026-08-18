@@ -8,9 +8,19 @@ public sealed class AppConfig
     public RecordingConfig Recording { get; set; } = new();
     public TranscriptionConfig Transcription { get; set; } = new();
     public NotesConfig Notes { get; set; } = new();
+    public LocalControlConfig LocalControl { get; set; } = new();
 
     /// <summary>Show a tray balloon when recording starts/stops and when a note is written.</summary>
     public bool ShowNotifications { get; set; } = true;
+}
+
+public sealed class LocalControlConfig
+{
+    /// <summary>Enable the local localhost API that lets external tools start/stop recording.</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Loopback port for the local HTTP API.</summary>
+    public int Port { get; set; } = 18123;
 }
 
 public sealed class VaultConfig
@@ -30,8 +40,8 @@ public sealed class VaultConfig
 
 public sealed class DetectionConfig
 {
-    /// <summary>Regex matched against process names that count as "a Teams call".</summary>
-    public string ProcessNamePattern { get; set; } = "^(ms-teams|Teams|Teams1)$";
+    /// <summary>Regex matched against process names that count as an active meeting app.</summary>
+    public string ProcessNamePattern { get; set; } = "^(ms-teams|Teams|Teams1|Zoom)$";
 
     /// <summary>Seconds between detection polls.</summary>
     public int PollSeconds { get; set; } = 2;
@@ -123,7 +133,7 @@ public sealed class NotesConfig
 {
     public bool IncludeFrontmatter { get; set; } = true;
     public bool IncludeTimestamps { get; set; } = true;
-    public string[] Tags { get; set; } = ["meeting", "teams", "auto-transcribed"];
+    public string[] Tags { get; set; } = ["meeting", "auto-transcribed"];
 
     /// <summary>Extra text inserted directly under the heading (e.g. a Dataview or callout snippet).</summary>
     public string HeaderSnippet { get; set; } = "";
