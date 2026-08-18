@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using MeetingScribe.Configuration;
 using MeetingScribe.Detection;
 using MeetingScribe.Infrastructure;
@@ -20,6 +21,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly NotifyIcon _notifyIcon;
 
     private readonly ToolStripMenuItem _statusItem;
+    private readonly ToolStripMenuItem _localApiStatusItem;
     private readonly ToolStripMenuItem _toggleRecordingItem;
     private readonly ToolStripMenuItem _pauseItem;
     private readonly ToolStripMenuItem _startWithWindowsItem;
@@ -38,6 +40,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _config = ConfigStore.Load();
 
         _statusItem = new ToolStripMenuItem("Starting…") { Enabled = false };
+        _localApiStatusItem = new ToolStripMenuItem("Local API: starting…") { Enabled = false };
         _toggleRecordingItem = new ToolStripMenuItem("Start recording now", null, (_, _) => ToggleRecording());
         _pauseItem = new ToolStripMenuItem("Pause monitoring", null, (_, _) => TogglePause()) { CheckOnClick = true };
         _startWithWindowsItem = new ToolStripMenuItem("Start with Windows", null, (_, _) => ToggleStartup())
@@ -76,6 +79,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (!_config.LocalControl.Enabled)
         {
+            _localApiStatusItem.Text = "Local API: disabled";
             Log.Info("Local control API is disabled in the config.");
             return;
         }
@@ -104,12 +108,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 return Results.Ok(new { status = _pipeline.IsRecording ? "recording" : "stopped" });
             });
 
+            app.StartAsync().GetAwaiter().GetResult();
             _localApi = app;
-            _localApiTask = app.RunAsync();
-            Log.Info($"Local control API listening on http://127.0.0.1:{port}");
+            _localApiTask = app.WaitForShutdownAsync();
+
+            var endpoint = app.Urls.FirstOrDefault() ?? $"http://127.0.0.1:{port}";
+            _localApiStatusItem.Text = $"Local API: running on port {new Uri(endpoint).Port}";
+            Log.Info($"Local control API listening on {endpoint}");
         }
         catch (Exception ex)
         {
+            _localApiStatusItem.Text = "Local API: unavailable";
             Log.Error($"Could not start local control API on port {_config.LocalControl.Port}", ex);
         }
     }
@@ -134,6 +143,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.AddRange(
         [
             _statusItem,
+            _localApiStatusItem,
             new ToolStripSeparator(),
             _toggleRecordingItem,
             _pauseItem,

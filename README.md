@@ -98,6 +98,7 @@ on first run.
 | Item | What it does |
 |---|---|
 | *(status line)* | Current state — watching, recording, transcribing |
+| *(Local API status)* | Shows whether local control is running and its listening port |
 | Start / Stop recording now | Manual override, independent of detection |
 | Pause monitoring | Stops automatic detection until you re-enable it |
 | Transcribe an audio file… | Import any existing recording (wav/mp3/m4a) and file it as a note |
