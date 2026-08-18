@@ -290,7 +290,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private void ExitApplication()
+    private async void ExitApplication()
     {
         if (_pipeline.IsRecording)
         {
@@ -304,6 +304,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if (answer == DialogResult.Yes) _pipeline.StopRecording();
         }
 
+        await StopLocalControlApiAsync();
         ExitThread();
     }
 
@@ -312,7 +313,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (disposing)
         {
             Log.Info($"MeetingScribe shutting down (state: {_state}).");
-            StopLocalControlApi();
             _notifyIcon.Visible = false;
 
             _monitor.Dispose();
@@ -324,13 +324,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
         base.Dispose(disposing);
     }
 
-    private void StopLocalControlApi()
+    private async Task StopLocalControlApiAsync()
     {
         if (_localApi is null) return;
 
         try
         {
-            _localApi.StopAsync().GetAwaiter().GetResult();
+            var stopTask = _localApi.StopAsync();
+            var completed = await Task.WhenAny(stopTask, Task.Delay(TimeSpan.FromSeconds(5)));
+            if (completed == stopTask) await stopTask;
+            else Log.Warn("Local control API did not stop within 5 seconds; continuing shutdown.");
         }
         catch (Exception ex)
         {
